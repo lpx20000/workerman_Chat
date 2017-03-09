@@ -1,0 +1,23 @@
+{
+    "name": "administrator/mydemo",
+    "description": "workerman chat",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "lpx",
+            "email": "849400324@qq.com"
+        }
+    ],
+    "require": {
+        "walkor/Workerman": "^3.3",
+        "illuminate/database": "^5.4"
+    },
+    "autoload": {
+        "classmap":[
+          "app/"
+        ],
+        "psr-4": {
+            "App\\": "app/"
+        }
+    }
+}

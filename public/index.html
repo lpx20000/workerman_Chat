@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+  <meta charset="UTF-8">
+  <title>workermane-chat-demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <link href="css/bootstrap.css" rel="stylesheet">
+  <link rel="stylesheet" href="chocolat/dist/css/chocolat.css">
+</head>
+<style>
+  body{
+    height: 100%;
+  }
+  .input-box{
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    margin-bottom: 1px;
+  }
+  .chat-content {
+    overflow: auto;
+    height: 500px;
+    max-height: 500px;
+    bottom: 20px;
+  }
+</style>
+<body>
+<div class="container-fluid">
+  <!--显示当人数-->
+  <div id="count" class="form-control">
+    <label class="label-control">
+      当前在线数：
+    </label>
+    <label id="man_count" class="label-control">
+    </label>
+  </div>
+</div>
+<div id="all"></div>
+
+<div id="member" style="display: none">
+  <label id="member-info" class="label-control"></label>
+</div>
+<div class="container-fluid chat-content ">
+  <!--聊天部分-->
+  <select name="member" id="selectId">
+    <option value="all">all</option>
+  </select>
+  <table class="table table-hover " id="chat">
+  </table>
+    <input type="file" name="image" id="image">
+  <form class=" input-box row form-group" >
+    <div class="col-xs-12 col-lg-12 form-group">
+      <div class="col-xs-8 col-lg-8">
+        <input class="form-control " id='input_chat'/>
+      </div>
+      <div class="col-xs-4 col-lg-4">
+        <input type='button' class="form-control span2" id='trans' value='发送消息'/>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script src="//cdn.bootcss.com/jquery/3.0.0-beta1/jquery.js"></script>
+<script src="chocolat/dist/js/jquery.chocolat.js"></script>
+<script>
+  /*聊天功能*/
+  $(document).ready(
+
+          function () {
+            var chat_ws = new WebSocket('ws://127.0.0.1:5556');
+            var  $chat = $("#chat");
+            var $chat_content = $(".chat-content");
+            chat_ws.onopen = function (e) {
+              console.log('开始聊天。。。');
+            };
+            chat_ws.onclose = function (e) {
+              $chat.close();
+              $chat.append("<tr ><th>" + '服务器断开。。。' + "</th></tr>");
+            };
+            chat_ws.onerror = function (e) {
+              $chat.append("<tr ><th>" + '服务器出错。。。' + "</th></tr>");
+            };
+            chat_ws.onmessage = function (e) {
+              var info = JSON.parse(e.data);
+              switch (info.type)
+              {
+                case 'login':
+                  console.log(info);
+                  infoAll('进入聊天室', info);
+                  break;
+                case 'say':
+                  if (info.to) {
+                    $chat.append("<tr><th>" + info.name + '对你说：' + info.message + "</th></tr>");
+                    return;
+                  }
+                  $chat.append("<tr><th>" + info.name + '说：' + info.message + "</th></tr>");
+                    $('#example1').Chocolat();
+                  break;
+                case 'logout':
+                  infoAll('离开聊天室', info);
+                  break;
+                case 'oldSay':
+                  var oldSay = info.message;
+
+                  for (var key in oldSay) {
+                    $chat.append("<tr><th>" + oldSay[key].name + '说：' + oldSay[key].message + "</th></tr>");
+                  }
+              }
+            };
+
+            function infoAll(message, info) {
+              var all = info.all;
+              var template = '';
+
+              var options=$("#selectId option:selected");
+              console.log(all);
+              for (var i in all) {
+                options += "<option value="+i+">"+all[i]+"</option>";
+                template += '<li><a hre="#">'+all[i]+'</a></li>';
+              }
+              $("#selectId").append(options);
+              $('#all').html(template);
+              $('#man_count').html(info.count);
+              $('#member').css('display', 'block');
+              $("#member-info").html(info.member + message);
+              setTimeout(function () {
+                $('#member').css('display', 'none');
+                $("#member-info").html('');
+              }, 1000);
+//          chat_ws.send('ping:pong');
+            }
+
+            var $input = $("#input_chat").keydown(function (e) {
+              var e = e || event;
+              if (e.keyCode == 13) {
+                $trans.click();
+                e.preventDefault();
+              }
+            });
+
+            // chat_ws
+            var $trans = $("#trans").click(
+                    function () {
+                      var options=$("#selectId option:selected");
+                      if (options.val() == 'all') {
+                        $chat.append("<tr><th>你说：" + $input.val() + "</th></tr>");
+                      } else {
+                        $chat.append("<tr><th>你对" + options.text() + '说：' + $input.val() + "</th></tr>");
+                      }
+                        $('#example1').Chocolat();
+                      //'{ "type": "image", "age": "'+baseInfo+'" }'
+                      var message = '{"type":"'+options.val()+'","infoType":"text", "message":"'+$input.val()+'"}';
+                      chat_ws.send(message);
+                      $input.val('').focus();
+                    }
+            );
+
+            //上传图片
+            $("#image").change(function(e){
+              var file = e.target.files[0];
+
+              var img = new Image(), url = img.src = URL.createObjectURL(file);
+              var $img = $(img);
+              img.onload = function() {
+                URL.revokeObjectURL(url);
+                var links = window.URL.createObjectURL(file);
+                var html = '<tr><th>你说：<div id="example1" data-chocolat-title="Set title">' +
+                  '<a class="chocolat-image" href="'+links+'" title="image caption a">'+
+                        '<img width="100px" src="'+links+'"></a></div></th></tr>';
+                  $chat.append(html);
+                  $('#example1').Chocolat();
+                // base64
+                var oFReader = new FileReader();
+                oFReader.readAsDataURL(file);
+                oFReader.onload = function (oFREvent) {
+                  //发送到服务端
+                  var options=$("#selectId option:selected");
+                  var baseInfo = oFREvent.target.result;
+                  var message = '{ "type": "'+options.val()+'","infoType":"image", "message": "'+baseInfo+'" }';
+                  chat_ws.send(message);
+                };
+              }
+            });
+
+          }
+  );
+</script>
+</body>
